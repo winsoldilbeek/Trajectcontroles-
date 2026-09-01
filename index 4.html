@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Trajectcontrole — gemiddelde snelheid</title>
+<style>
+  :root{
+    --bg: #10141b;
+    --surface: #171d26;
+    --line: #262f3b;
+    --text: #eef1f5;
+    --text-dim: #7c8798;
+    --safe: #3ddc84;
+    --warn: #ff6a4d;
+    --warn-dim: #3d241d;
+    --blue: #2f6fd6;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body{
+    margin:0; padding:0; height:100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+  }
+  .app{
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: 22px 20px 28px;
+  }
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1{ font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  header .status{ font-size: 12px; color: var(--text-dim); display:flex; align-items:center; gap:6px; text-align:right; }
+  header .dot{ width:7px; height:7px; border-radius:50%; background: var(--text-dim); transition: background .3s; flex-shrink:0; }
+  header .dot.live{ background: var(--blue); box-shadow: 0 0 0 0 rgba(47,111,214,.6); animation: pulse 1.8s infinite; }
+  header .dot.armed{ background: var(--safe); }
+  @keyframes pulse{
+    0%{ box-shadow: 0 0 0 0 rgba(47,111,214,.55); }
+    70%{ box-shadow: 0 0 0 8px rgba(47,111,214,0); }
+    100%{ box-shadow: 0 0 0 0 rgba(47,111,214,0); }
+  }
+
+  .gauge-wrap{ position: relative; width: 250px; height: 250px; margin: 24px auto 6px; }
+  .gauge-wrap svg{ width:100%; height:100%; transform: rotate(-90deg); }
+  .gauge-wrap circle{ fill:none; stroke-width: 14; }
+  .track{ stroke: var(--surface); }
+  .progress{ stroke: var(--safe); stroke-linecap: round; transition: stroke-dashoffset .5s ease, stroke .3s ease; }
+  .progress.over{ stroke: var(--warn); }
+
+  .gauge-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .speed-value{ font-size: 60px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--safe); transition: color .3s ease; }
+  .speed-value.over{ color: var(--warn); }
+  .speed-unit{ font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+  .delta{ font-size: 13px; margin-top: 10px; font-weight: 600; color: var(--text-dim); min-height: 18px; }
+  .delta.over{ color: var(--warn); }
+  .delta.safe{ color: var(--safe); }
+
+  .limit-row{ display:flex; align-items:center; justify-content:center; gap: 16px; margin: 18px 0 4px; }
+  .limit-label{ font-size: 13px; color: var(--text-dim); }
+  .stepper{ display:flex; align-items:center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+  .stepper button{ width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent; color: var(--text); font-size: 19px; font-weight: 600; display:flex; align-items:center; justify-content:center; }
+  .stepper button:active{ background: var(--line); }
+  .stepper .limit-num{ width: 56px; text-align:center; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .stats{ display:flex; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .stat{ flex:1; text-align:center; }
+  .stat + .stat{ border-left: 1px solid var(--line); }
+  .stat .num{ font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .lbl{ font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+  .msg{ margin-top: 14px; font-size: 13px; color: var(--warn); text-align:center; min-height: 16px; }
+  .msg.info{ color: var(--blue); }
+
+  .controls{ margin-top: 18px; display:flex; gap: 10px; }
+  .btn{ flex:1; border: none; border-radius: 14px; padding: 15px 0; font-size: 15px; font-weight: 700; color: var(--text); background: var(--surface); border: 1px solid var(--line); }
+  .btn:active{ transform: scale(0.98); }
+  .btn.primary{ background: var(--blue); border-color: var(--blue); }
+  .btn.danger{ background: var(--warn-dim); border-color: var(--warn); color: var(--warn); }
+  .btn.ghost{ color: var(--text-dim); }
+
+  .locaties{ margin-top: 26px; border-top: 1px solid var(--line); padding-top: 18px; }
+  .locaties h2{ font-size: 13px; font-weight: 700; margin: 0 0 10px; color: var(--text-dim); }
+  .loc-item{ display:flex; align-items:center; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .loc-item:last-child{ border-bottom: none; }
+  .loc-info{ display:flex; flex-direction:column; gap:2px; }
+  .loc-name{ font-size: 14px; font-weight: 600; }
+  .loc-sub{ font-size: 12px; color: var(--text-dim); }
+  .loc-del{ background: none; border: none; color: var(--text-dim); font-size: 18px; padding: 6px 8px; }
+  .loc-empty{ font-size: 13px; color: var(--text-dim); padding: 6px 0 12px; }
+
+  .add-panel{ margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .add-panel input[type=text]{
+    width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 12px; color: var(--text); font-size: 14px; margin-bottom: 10px;
+  }
+  .add-panel .limit-row{ margin: 4px 0 14px; justify-content: flex-start; }
+  .add-panel .btn-row{ display:flex; gap: 10px; }
+
+  .btn-add-loc{
+    width: 100%; margin-top: 4px; border: 1px dashed var(--line); background: none;
+    color: var(--text-dim); border-radius: 12px; padding: 13px 0; font-size: 14px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>Trajectcontrole</h1>
+    <div class="status">
+      <span class="dot" id="gpsDot"></span>
+      <span id="gpsLabel">gps uit</span>
+    </div>
+  </header>
+
+  <div class="gauge-wrap">
+    <svg viewBox="0 0 250 250">
+      <circle class="track" cx="125" cy="125" r="110"></circle>
+      <circle class="progress" id="progressRing" cx="125" cy="125" r="110" stroke-dasharray="691.2" stroke-dashoffset="691.2"></circle>
+    </svg>
+    <div class="gauge-center">
+      <div class="speed-value" id="speedValue">0</div>
+      <div class="speed-unit">km/u gemiddeld</div>
+      <div class="delta" id="deltaLabel"></div>
+    </div>
+  </div>
+
+  <div class="limit-row">
+    <span class="limit-label">limiet</span>
+    <div class="stepper">
+      <button id="limitDown">–</button>
+      <span class="limit-num" id="limitNum">90</span>
+      <button id="limitUp">+</button>
+    </div>
+    <span class="limit-label">km/u</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="timeStat">00:00</div><div class="lbl">tijd</div></div>
+    <div class="stat"><div class="num" id="distStat">0,00</div><div class="lbl">km afgelegd</div></div>
+    <div class="stat"><div class="num" id="nowStat">–</div><div class="lbl">actuele snelheid</div></div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="controls">
+    <button class="btn ghost" id="resetBtn">reset</button>
+    <button class="btn primary" id="startBtn">start bij het bord</button>
+  </div>
+
+  <div class="locaties">
+    <h2>mijn trajectcontroles</h2>
+    <div id="locList"></div>
+    <button class="btn-add-loc" id="addToggle">+ voeg huidige locatie toe</button>
+
+    <div class="add-panel" id="addPanel" hidden>
+      <input type="text" id="addName" placeholder="naam (bv. R0 Ternat richting Brussel)">
+      <div class="limit-row">
+        <span class="limit-label">limiet</span>
+        <div class="stepper">
+          <button id="addLimitDown">–</button>
+          <span class="limit-num" id="addLimitNum">90</span>
+          <button id="addLimitUp">+</button>
+        </div>
+        <span class="limit-label">km/u</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="addCancel">annuleer</button>
+        <button class="btn primary" id="addSave">bewaar hier</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const speedValue = document.getElementById('speedValue');
+  const deltaLabel = document.getElementById('deltaLabel');
+  const progressRing = document.getElementById('progressRing');
+  const gpsDot = document.getElementById('gpsDot');
+  const gpsLabel = document.getElementById('gpsLabel');
+  const limitNum = document.getElementById('limitNum');
+  const timeStat = document.getElementById('timeStat');
+  const distStat = document.getElementById('distStat');
+  const nowStat = document.getElementById('nowStat');
+  const msg = document.getElementById('msg');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const locList = document.getElementById('locList');
+  const addToggle = document.getElementById('addToggle');
+  const addPanel = document.getElementById('addPanel');
+  const addName = document.getElementById('addName');
+  const addLimitNum = document.getElementById('addLimitNum');
+  const addCancel = document.getElementById('addCancel');
+  const addSave = document.getElementById('addSave');
+
+  const CIRC = 2 * Math.PI * 110;
+  const TRIGGER_RADIUS_KM = 0.15;   // 150 m
+  const COOLDOWN_MS = 5 * 60 * 1000; // 5 min per punt na stoppen
+
+  let limit = 90;
+  let addLimit = 90;
+  let running = false;
+  let startTime = null;
+  let totalDistanceKm = 0;
+  let lastPos = null;
+  let lastKnownPos = null;
+  let tickInterval = null;
+  let watchId = null;
+  let activePointId = null;
+  let cooldowns = {};
+
+  let points = [];
+  try { points = JSON.parse(localStorage.getItem('tc_points') || '[]'); } catch(e){ points = []; }
+
+  function savePoints(){ localStorage.setItem('tc_points', JSON.stringify(points)); }
+
+  function haversineKm(lat1, lon1, lat2, lon2){
+    const R = 6371;
+    const dLat = (lat2-lat1) * Math.PI/180;
+    const dLon = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function fmtTime(sec){
+    const m = Math.floor(sec/60).toString().padStart(2,'0');
+    const s = Math.floor(sec%60).toString().padStart(2,'0');
+    return m+':'+s;
+  }
+
+  function renderLocList(){
+    if (points.length === 0){
+      locList.innerHTML = '<div class="loc-empty">nog geen locaties bewaard</div>';
+      return;
+    }
+    locList.innerHTML = points.map(p => `
+      <div class="loc-item">
+        <div class="loc-info">
+          <span class="loc-name">${p.name}</span>
+          <span class="loc-sub">limiet ${p.limit} km/u</span>
+        </div>
+        <button class="loc-del" data-id="${p.id}">✕</button>
+      </div>
+    `).join('');
+    locList.querySelectorAll('.loc-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        points = points.filter(p => p.id !== btn.dataset.id);
+        savePoints();
+        renderLocList();
+      });
+    });
+  }
+
+  function updateLimitDisplay(){ limitNum.textContent = limit; render(); }
+
+  document.getElementById('limitUp').addEventListener('click', () => { limit = Math.min(limit + 10, 130); updateLimitDisplay(); });
+  document.getElementById('limitDown').addEventListener('click', () => { limit = Math.max(limit - 10, 30); updateLimitDisplay(); });
+  document.getElementById('addLimitUp').addEventListener('click', () => { addLimit = Math.min(addLimit + 10, 130); addLimitNum.textContent = addLimit; });
+  document.getElementById('addLimitDown').addEventListener('click', () => { addLimit = Math.max(addLimit - 10, 30); addLimitNum.textContent = addLimit; });
+
+  addToggle.addEventListener('click', () => {
+    if (!lastKnownPos){
+      msg.textContent = 'gps zoekt nog je positie, even wachten';
+      msg.className = 'msg';
+      return;
+    }
+    addPanel.hidden = false;
+    addToggle.hidden = true;
+  });
+
+  addCancel.addEventListener('click', () => {
+    addPanel.hidden = true;
+    addToggle.hidden = false;
+    addName.value = '';
+  });
+
+  addSave.addEventListener('click', () => {
+    const name = addName.value.trim() || 'naamloze locatie';
+    if (!lastKnownPos) return;
+    points.push({
+      id: Date.now().toString(36),
+      name,
+      lat: lastKnownPos.lat,
+      lon: lastKnownPos.lon,
+      limit: addLimit
+    });
+    savePoints();
+    renderLocList();
+    addPanel.hidden = true;
+    addToggle.hidden = false;
+    addName.value = '';
+    msg.textContent = '"' + name + '" bewaard';
+    msg.className = 'msg info';
+  });
+
+  function render(){
+    const elapsedHours = startTime ? (Date.now() - startTime) / 3600000 : 0;
+    const avg = elapsedHours > 0 ? totalDistanceKm / elapsedHours : 0;
+    const over = avg > limit;
+
+    speedValue.textContent = avg.toFixed(0);
+    speedValue.classList.toggle('over', over);
+
+    const frac = Math.min(avg / limit, 1) || 0;
+    progressRing.style.strokeDashoffset = CIRC * (1 - frac);
+    progressRing.classList.toggle('over', over);
+
+    if (running){
+      const diff = avg - limit;
+      if (Math.abs(diff) < 0.5){
+        deltaLabel.textContent = 'exact op de limiet';
+        deltaLabel.className = 'delta';
+      } else if (over){
+        deltaLabel.textContent = '+' + diff.toFixed(0) + ' km/u te snel';
+        deltaLabel.className = 'delta over';
+      } else {
+        deltaLabel.textContent = diff.toFixed(0) + ' km/u marge';
+        deltaLabel.className = 'delta safe';
+      }
+    } else {
+      deltaLabel.textContent = '';
+    }
+
+    const elapsedSec = startTime ? (Date.now() - startTime) / 1000 : 0;
+    timeStat.textContent = fmtTime(elapsedSec);
+    distStat.textContent = totalDistanceKm.toFixed(2).replace('.', ',');
+  }
+
+  function startMeasuring(pointName){
+    running = true;
+    startTime = Date.now();
+    totalDistanceKm = 0;
+    lastPos = lastKnownPos;
+    if (tickInterval) clearInterval(tickInterval);
+    tickInterval = setInterval(render, 1000);
+    startBtn.textContent = 'stop bij het bord';
+    startBtn.classList.remove('primary');
+    startBtn.classList.add('danger');
+    if (pointName){
+      msg.textContent = 'trajectcontrole gedetecteerd: ' + pointName;
+      msg.className = 'msg info';
+      if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+    } else {
+      msg.textContent = '';
+    }
+    render();
+  }
+
+  function stopMeasuring(){
+    running = false;
+    if (tickInterval) clearInterval(tickInterval);
+    if (activePointId) cooldowns[activePointId] = Date.now();
+    activePointId = null;
+    startBtn.textContent = 'opnieuw starten';
+    startBtn.classList.remove('danger');
+    startBtn.classList.add('primary');
+  }
+
+  function reset(){
+    stopMeasuring();
+    startTime = null;
+    totalDistanceKm = 0;
+    lastPos = null;
+    nowStat.textContent = '–';
+    msg.textContent = '';
+    startBtn.textContent = 'start bij het bord';
+    render();
+  }
+
+  function checkAutoTrigger(pos){
+    if (running) return;
+    for (const p of points){
+      const lastStop = cooldowns[p.id];
+      if (lastStop && (Date.now() - lastStop) < COOLDOWN_MS) continue;
+      const d = haversineKm(pos.lat, pos.lon, p.lat, p.lon);
+      if (d <= TRIGGER_RADIUS_KM){
+        limit = p.limit;
+        updateLimitDisplay();
+        activePointId = p.id;
+        startMeasuring(p.name);
+        return;
+      }
+    }
+  }
+
+  function onPosition(pos){
+    gpsDot.classList.add('live');
+    gpsDot.classList.remove('armed');
+    gpsLabel.textContent = running ? 'meet gemiddelde' : (points.length ? 'volgt ' + points.length + ' locatie(s)' : 'gps actief');
+
+    const cur = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    lastKnownPos = cur;
+
+    if (pos.coords.speed !== null && pos.coords.speed >= 0){
+      nowStat.textContent = Math.round(pos.coords.speed * 3.6);
+    }
+
+    if (running){
+      if (lastPos){
+        const d = haversineKm(lastPos.lat, lastPos.lon, cur.lat, cur.lon);
+        if (d < 1) totalDistanceKm += d;
+      }
+      lastPos = cur;
+      render();
+    } else {
+      checkAutoTrigger(cur);
+    }
+  }
+
+  function onPosError(err){
+    gpsDot.classList.remove('live', 'armed');
+    gpsLabel.textContent = 'gps fout';
+    msg.textContent = err.code === 1
+      ? 'geef locatietoegang vrij om te starten'
+      : 'gps-signaal kwijt, blijft doortellen';
+  }
+
+  function ensureWatch(){
+    if (watchId !== null) return;
+    if (!navigator.geolocation){
+      msg.textContent = 'gps niet beschikbaar op dit toestel';
+      return;
+    }
+    watchId = navigator.geolocation.watchPosition(onPosition, onPosError, {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+      timeout: 15000
+    });
+    gpsDot.classList.add('armed');
+    gpsLabel.textContent = 'gps zoekt...';
+  }
+
+  startBtn.addEventListener('click', () => {
+    ensureWatch();
+    if (!running){
+      startMeasuring(null);
+    } else {
+      stopMeasuring();
+    }
+  });
+
+  resetBtn.addEventListener('click', reset);
+
+  renderLocList();
+  ensureWatch();
+  render();
+</script>
+</body>
+</html>

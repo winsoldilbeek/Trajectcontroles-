@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trajectcontrole — gemiddelde snelheid</title>
 <style>
   :root{
@@ -17,72 +17,102 @@
     --blue: #2f6fd6;
   }
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html{ color-scheme: dark; }
   html, body{
-    margin:0; padding:0; height:100%;
+    margin:0; padding:0; min-height:100%;
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     overscroll-behavior: none;
   }
+  body{ min-height: 100dvh; }
+  body.overlimit{ background: #2a1411; }
   .app{
-    max-width: 420px;
+    width: 100%;
+    max-width: 480px;
     margin: 0 auto;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    padding: 22px 20px 28px;
+    padding:
+      max(16px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(20px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
   }
+  .meter{ display: flex; flex-direction: column; }
+  body.overlimit .app{ background: #2a1411; }
   header{
     display:flex;
     align-items:baseline;
     justify-content:space-between;
     padding-bottom: 14px;
     border-bottom: 1px solid var(--line);
+    gap: 12px;
   }
   header h1{ font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
   header .status{ font-size: 12px; color: var(--text-dim); display:flex; align-items:center; gap:6px; text-align:right; }
   header .dot{ width:7px; height:7px; border-radius:50%; background: var(--text-dim); transition: background .3s; flex-shrink:0; }
   header .dot.live{ background: var(--blue); box-shadow: 0 0 0 0 rgba(47,111,214,.6); animation: pulse 1.8s infinite; }
   header .dot.armed{ background: var(--safe); }
+  header .dot.save{ background: #e2b340; }
   @keyframes pulse{
     0%{ box-shadow: 0 0 0 0 rgba(47,111,214,.55); }
     70%{ box-shadow: 0 0 0 8px rgba(47,111,214,0); }
     100%{ box-shadow: 0 0 0 0 rgba(47,111,214,0); }
   }
 
-  .gauge-wrap{ position: relative; width: 250px; height: 250px; margin: 24px auto 6px; }
+  .gauge-wrap{
+    position: relative;
+    width: min(250px, 72vw);
+    height: min(250px, 72vw);
+    margin: 20px auto 6px;
+    container-type: inline-size;
+  }
   .gauge-wrap svg{ width:100%; height:100%; transform: rotate(-90deg); }
   .gauge-wrap circle{ fill:none; stroke-width: 14; }
   .track{ stroke: var(--surface); }
   .progress{ stroke: var(--safe); stroke-linecap: round; transition: stroke-dashoffset .5s ease, stroke .3s ease; }
   .progress.over{ stroke: var(--warn); }
 
-  .gauge-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .speed-value{ font-size: 60px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--safe); transition: color .3s ease; }
+  .gauge-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 12%; text-align:center; }
+  .speed-value{ font-size: clamp(48px, 26cqi, 76px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--safe); transition: color .3s ease; }
   .speed-value.over{ color: var(--warn); }
   .speed-unit{ font-size: 13px; color: var(--text-dim); margin-top: 6px; }
   .delta{ font-size: 13px; margin-top: 10px; font-weight: 600; color: var(--text-dim); min-height: 18px; }
   .delta.over{ color: var(--warn); }
   .delta.safe{ color: var(--safe); }
+  .drive-limit{ display:none; font-size: 13px; color: var(--text-dim); margin-top: 6px; font-weight: 600; }
 
-  .limit-row{ display:flex; align-items:center; justify-content:center; gap: 16px; margin: 18px 0 4px; }
+  .limit-setup{ margin-top: 18px; }
+  .limit-caption{ text-align:center; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+  .limit-line{ display:flex; align-items:center; justify-content:center; gap: 8px; flex-wrap: nowrap; }
   .limit-label{ font-size: 13px; color: var(--text-dim); }
-  .stepper{ display:flex; align-items:center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
-  .stepper button{ width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent; color: var(--text); font-size: 19px; font-weight: 600; display:flex; align-items:center; justify-content:center; }
+  .stepper{ display:flex; align-items:center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; flex: 0 0 auto; }
+  .stepper button{ width: 44px; height: 44px; border-radius: 50%; border: none; background: transparent; color: var(--text); font-size: 20px; font-weight: 600; display:flex; align-items:center; justify-content:center; font-family: inherit; cursor: pointer; touch-action: manipulation; }
   .stepper button:active{ background: var(--line); }
-  .stepper .limit-num{ width: 56px; text-align:center; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stepper .limit-num{ width: 44px; text-align:center; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .quick-limits{ display:flex; gap: 6px; flex: 0 0 auto; }
+  .quick-limits button{
+    min-width: 44px; height: 44px; padding: 0 8px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: inherit;
+    cursor: pointer; touch-action: manipulation;
+  }
+  .quick-limits button.active{ background: var(--blue); border-color: var(--blue); color: #fff; }
+  .quick-limits button:active{ transform: scale(0.97); }
 
   .stats{ display:flex; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
   .stat{ flex:1; text-align:center; }
   .stat + .stat{ border-left: 1px solid var(--line); }
   .stat .num{ font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .stat .lbl{ font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .stat .lbl{ font-size: 11px; color: var(--text-dim); margin-top: 4px; line-height: 1.25; }
 
   .msg{ margin-top: 14px; font-size: 13px; color: var(--warn); text-align:center; min-height: 16px; }
   .msg.info{ color: var(--blue); }
 
   .controls{ margin-top: 18px; display:flex; gap: 10px; }
-  .btn{ flex:1; border: none; border-radius: 14px; padding: 15px 0; font-size: 15px; font-weight: 700; color: var(--text); background: var(--surface); border: 1px solid var(--line); }
+  .btn{ flex:1; border-radius: 14px; padding: 15px 10px; min-height: 48px; font-size: 15px; font-weight: 700; color: var(--text); background: var(--surface); border: 1px solid var(--line); font-family: inherit; cursor: pointer; touch-action: manipulation; }
   .btn:active{ transform: scale(0.98); }
   .btn.primary{ background: var(--blue); border-color: var(--blue); }
   .btn.danger{ background: var(--warn-dim); border-color: var(--warn); color: var(--warn); }
@@ -92,23 +122,242 @@
   .locaties h2{ font-size: 13px; font-weight: 700; margin: 0 0 10px; color: var(--text-dim); }
   .loc-item{ display:flex; align-items:center; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .loc-item:last-child{ border-bottom: none; }
-  .loc-info{ display:flex; flex-direction:column; gap:2px; }
-  .loc-name{ font-size: 14px; font-weight: 600; }
+  .loc-info{ display:flex; flex-direction:column; gap:2px; min-width: 0; }
+  .loc-name{ font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
   .loc-sub{ font-size: 12px; color: var(--text-dim); }
-  .loc-del{ background: none; border: none; color: var(--text-dim); font-size: 18px; padding: 6px 8px; }
+  .loc-del{ background: none; border: none; color: var(--text-dim); font-size: 18px; min-width: 44px; min-height: 44px; padding: 8px 10px; font-family: inherit; cursor: pointer; touch-action: manipulation; }
   .loc-empty{ font-size: 13px; color: var(--text-dim); padding: 6px 0 12px; }
 
-  .add-panel{ margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
-  .add-panel input[type=text]{
-    width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
-    padding: 11px 12px; color: var(--text); font-size: 14px; margin-bottom: 10px;
+  .share-row{ display:flex; gap: 10px; margin: 0 0 12px; }
+  .share-row .btn{ padding: 12px 8px; font-size: 14px; }
+  .share-help{ font-size: 13px; color: var(--text-dim); margin: 0 0 12px; line-height: 1.4; }
+  #qrCanvas{
+    display:block; margin: 4px auto 12px; background:#fff; border-radius: 12px;
+    max-width: 100%; height: auto; image-rendering: pixelated;
   }
-  .add-panel .limit-row{ margin: 4px 0 14px; justify-content: flex-start; }
+  .add-panel textarea, .add-panel input[type=text]{
+    width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; color: var(--text); font-size: 16px; margin-bottom: 10px; font-family: inherit;
+  }
+  .add-panel textarea{ font-size: 12px; resize: none; word-break: break-all; min-height: 64px; }
+  .add-panel{ margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .add-panel .limit-caption{ text-align:left; margin-top: 2px; }
+  .add-panel .limit-line{ margin: 0 0 14px; justify-content: flex-start; }
   .add-panel .btn-row{ display:flex; gap: 10px; }
+  .panel-msg{ min-height: 0; margin: 10px 0 0; }
 
   .btn-add-loc{
     width: 100%; margin-top: 4px; border: 1px dashed var(--line); background: none;
-    color: var(--text-dim); border-radius: 12px; padding: 13px 0; font-size: 14px; font-weight: 600;
+    color: var(--text-dim); border-radius: 12px; padding: 14px 12px; min-height: 48px;
+    font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; touch-action: manipulation;
+  }
+  button:focus-visible, input:focus-visible, textarea:focus-visible{
+    outline: 2px solid var(--blue); outline-offset: 2px;
+  }
+  @media (hover: hover) and (pointer: fine){
+    .btn.primary:hover{ filter: brightness(1.08); }
+    .btn.ghost:hover, .btn-add-loc:hover, .loc-del:hover{ color: var(--text); border-color: #3a4656; }
+    .quick-limits button:hover{ border-color: var(--blue); }
+    .stepper button:hover{ background: var(--line); }
+  }
+
+  body.driving .meter{ flex: 1; min-height: 0; }
+  body.driving .gauge-wrap{
+    width: min(86vw, 42dvh, 360px);
+    height: min(86vw, 42dvh, 360px);
+    margin: 8px auto 0;
+  }
+  body.driving .speed-value{ font-size: clamp(52px, 34cqi, 120px); }
+  body.driving .speed-unit{ font-size: clamp(13px, 5.5cqi, 16px); }
+  body.driving .delta{ font-size: clamp(16px, 8cqi, 26px); margin-top: 8px; }
+  body.driving .drive-limit{ display:block; font-size: clamp(13px, 5cqi, 16px); }
+  body.driving .stat .num{ font-size: clamp(22px, 6.2vw, 32px); }
+  body.driving .stats{ margin-top: 10px; }
+  body.driving .limit-setup,
+  body.driving .locaties,
+  body.driving #resetBtn{ display: none; }
+  body.driving .controls{ margin-top: auto; padding-top: 14px; }
+  body.driving #startBtn{
+    padding: 18px 0 20px;
+    min-height: 76px;
+    font-size: clamp(28px, 8vw, 36px);
+    letter-spacing: 0.14em;
+    border-radius: 20px;
+    background: var(--warn);
+    border-color: var(--warn);
+    color: #1a0d0a;
+  }
+
+  @media (max-width: 389px){
+    .limit-line{ flex-wrap: wrap; }
+    .quick-limits{ width: 100%; }
+    .quick-limits button{ flex: 1; }
+    header h1{ font-size: 16px; }
+  }
+
+  @media (min-width: 700px){
+    .app{ max-width: 680px; padding: max(28px, env(safe-area-inset-top)) 32px max(32px, env(safe-area-inset-bottom)); }
+    header h1{ font-size: 22px; }
+    header .status{ font-size: 14px; }
+    .gauge-wrap{ width: min(340px, 42dvh); height: min(340px, 42dvh); margin-top: 28px; }
+    .stat .num{ font-size: 24px; }
+    .stat .lbl{ font-size: 13px; }
+    .btn{ min-height: 52px; font-size: 17px; border-radius: 16px; }
+    .stepper button{ width: 48px; height: 48px; }
+    .quick-limits{ gap: 8px; }
+    .quick-limits button{ min-width: 56px; height: 48px; font-size: 16px; }
+    .loc-name{ font-size: 16px; }
+    body.driving .app{ max-width: 760px; }
+    body.driving .gauge-wrap{
+      width: min(62vw, 50dvh, 480px);
+      height: min(62vw, 50dvh, 480px);
+    }
+    body.driving .stat .num{ font-size: clamp(26px, 4vw, 36px); }
+    body.driving #startBtn{ min-height: 96px; font-size: 40px; }
+  }
+
+  @media (min-width: 980px){
+    body:not(.driving){ height: 100dvh; overflow: hidden; }
+    body:not(.driving) .app{
+      max-width: 1120px;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(360px, 1.05fr) minmax(320px, 0.95fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      column-gap: 8px;
+      padding: max(24px, env(safe-area-inset-top)) max(36px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(36px, env(safe-area-inset-left));
+    }
+    body:not(.driving) header{ grid-column: 1 / -1; }
+    body:not(.driving) .meter{
+      min-height: 0;
+      padding-right: 28px;
+    }
+    body:not(.driving) .gauge-wrap{ width: min(300px, 36dvh); height: min(300px, 36dvh); margin-top: 16px; }
+    body:not(.driving) .controls{ margin-top: auto; }
+    body:not(.driving) .locaties{
+      margin-top: 16px;
+      border-top: none;
+      border-left: 1px solid var(--line);
+      padding: 4px 4px 8px 32px;
+      overflow: auto;
+      min-height: 0;
+    }
+    body.driving .app{ max-width: 840px; }
+    body.driving .gauge-wrap{
+      width: min(46vw, 52dvh, 460px);
+      height: min(46vw, 52dvh, 460px);
+    }
+  }
+
+  @media (orientation: portrait) and (max-height: 640px){
+    .gauge-wrap{ width: min(188px, 62vw); height: min(188px, 62vw); margin: 8px auto 2px; }
+    .limit-setup{ margin-top: 8px; }
+    .limit-caption{ margin-bottom: 4px; }
+    .stats{ margin-top: 10px; padding-top: 8px; }
+    .msg{ margin-top: 6px; min-height: 0; }
+    .controls{ margin-top: 8px; }
+  }
+
+  @media (orientation: landscape) and (max-height: 520px){
+    body:not(.driving){ height: 100dvh; overflow: hidden; }
+    body:not(.driving) .app{
+      max-width: none;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) minmax(84px, 32%);
+      padding:
+        max(8px, env(safe-area-inset-top))
+        max(14px, env(safe-area-inset-right))
+        max(8px, env(safe-area-inset-bottom))
+        max(14px, env(safe-area-inset-left));
+    }
+    body:not(.driving) header{ padding-bottom: 6px; }
+    body:not(.driving) .meter{
+      min-height: 0;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      column-gap: 18px;
+      align-items: center;
+    }
+    body:not(.driving) .gauge-wrap{
+      grid-row: 1 / span 4;
+      width: min(210px, 48dvh);
+      height: min(210px, 48dvh);
+      margin: 0;
+    }
+    body:not(.driving) .limit-setup{ margin-top: 0; }
+    body:not(.driving) .limit-caption{ margin-bottom: 4px; }
+    body:not(.driving) .stats{ margin-top: 8px; padding-top: 8px; }
+    body:not(.driving) .msg{ margin-top: 4px; min-height: 0; }
+    body:not(.driving) .controls{ margin-top: 8px; }
+    body:not(.driving) .btn{ min-height: 44px; padding: 8px 10px; }
+    body:not(.driving) .locaties{
+      min-height: 0;
+      overflow: auto;
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+    body.driving{
+      height: 100dvh;
+      overflow: hidden;
+    }
+    body.driving .app{
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto auto;
+      column-gap: 18px;
+      max-width: none;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      padding:
+        max(8px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        max(8px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
+    }
+    body.driving .meter{ display: contents; }
+    body.driving header{ grid-column: 1 / -1; padding-bottom: 8px; }
+    body.driving .gauge-wrap{
+      grid-column: 1;
+      grid-row: 2 / span 3;
+      width: min(68dvh, 40vw, 320px);
+      height: min(68dvh, 40vw, 320px);
+      max-width: calc(100dvh - 84px);
+      max-height: calc(100dvh - 84px);
+      margin: 0;
+      align-self: center;
+    }
+    body.driving .stats{
+      grid-column: 2;
+      grid-row: 2;
+      align-self: end;
+      margin-top: 0;
+    }
+    body.driving .msg{
+      grid-column: 2;
+      grid-row: 3;
+      align-self: center;
+      min-height: 0;
+      margin-top: 6px;
+    }
+    body.driving .controls{
+      grid-column: 2;
+      grid-row: 4;
+      margin-top: 8px;
+      padding-top: 0;
+      align-self: end;
+    }
+    body.driving #startBtn{
+      min-height: 64px;
+      font-size: 28px;
+      padding: 12px 0 14px;
+    }
   }
 </style>
 </head>
@@ -123,6 +372,7 @@
     </div>
   </header>
 
+  <div class="meter">
   <div class="gauge-wrap">
     <svg viewBox="0 0 250 250">
       <circle class="track" cx="125" cy="125" r="110"></circle>
@@ -132,17 +382,25 @@
       <div class="speed-value" id="speedValue">0</div>
       <div class="speed-unit">km/u gemiddeld</div>
       <div class="delta" id="deltaLabel"></div>
+      <div class="drive-limit" id="driveLimit">limiet 90 km/u</div>
     </div>
   </div>
 
-  <div class="limit-row">
-    <span class="limit-label">limiet</span>
-    <div class="stepper">
-      <button id="limitDown">–</button>
-      <span class="limit-num" id="limitNum">90</span>
-      <button id="limitUp">+</button>
+  <div class="limit-setup">
+    <div class="limit-caption">limiet in km/u</div>
+    <div class="limit-line">
+      <div class="stepper">
+        <button type="button" id="limitDown" aria-label="limiet omlaag">–</button>
+        <span class="limit-num" id="limitNum">90</span>
+        <button type="button" id="limitUp" aria-label="limiet omhoog">+</button>
+      </div>
+      <div class="quick-limits" id="quickLimits">
+        <button type="button" data-q="50">50</button>
+        <button type="button" data-q="70">70</button>
+        <button type="button" data-q="90">90</button>
+        <button type="button" data-q="120">120</button>
+      </div>
     </div>
-    <span class="limit-label">km/u</span>
   </div>
 
   <div class="stats">
@@ -154,29 +412,59 @@
   <div class="msg" id="msg"></div>
 
   <div class="controls">
-    <button class="btn ghost" id="resetBtn">reset</button>
-    <button class="btn primary" id="startBtn">start bij het bord</button>
+    <button type="button" class="btn ghost" id="resetBtn">reset</button>
+    <button type="button" class="btn primary" id="startBtn">start bij het bord</button>
+  </div>
   </div>
 
   <div class="locaties">
     <h2>mijn trajectcontroles</h2>
+    <div class="share-row">
+      <button type="button" class="btn ghost" id="exportBtn">deel link / QR</button>
+      <button type="button" class="btn ghost" id="importToggle">importeer</button>
+    </div>
+
+    <div class="add-panel" id="exportPanel" hidden>
+      <p class="share-help">Scan de QR-code of stuur de link. Op het andere toestel komen deze locaties erbij.</p>
+      <canvas id="qrCanvas" aria-label="QR-code met de deel-link"></canvas>
+      <textarea id="exportLink" readonly rows="3"></textarea>
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="exportClose">sluit</button>
+        <button type="button" class="btn primary" id="copyLink">kopieer link</button>
+      </div>
+      <div class="msg panel-msg" id="exportMsg"></div>
+    </div>
+
+    <div class="add-panel" id="importPanel" hidden>
+      <input type="text" id="importInput" placeholder="plak een deel-link" autocomplete="off">
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="importCancel">annuleer</button>
+        <button type="button" class="btn primary" id="importGo">importeer</button>
+      </div>
+    </div>
+
     <div id="locList"></div>
-    <button class="btn-add-loc" id="addToggle">+ voeg huidige locatie toe</button>
+    <button type="button" class="btn-add-loc" id="addToggle">+ voeg huidige locatie toe</button>
 
     <div class="add-panel" id="addPanel" hidden>
       <input type="text" id="addName" placeholder="naam (bv. R0 Ternat richting Brussel)">
-      <div class="limit-row">
-        <span class="limit-label">limiet</span>
+      <div class="limit-caption">limiet in km/u</div>
+      <div class="limit-line">
         <div class="stepper">
-          <button id="addLimitDown">–</button>
+          <button type="button" id="addLimitDown" aria-label="limiet omlaag">–</button>
           <span class="limit-num" id="addLimitNum">90</span>
-          <button id="addLimitUp">+</button>
+          <button type="button" id="addLimitUp" aria-label="limiet omhoog">+</button>
         </div>
-        <span class="limit-label">km/u</span>
+        <div class="quick-limits" id="addQuick">
+          <button type="button" data-q="50">50</button>
+          <button type="button" data-q="70">70</button>
+          <button type="button" data-q="90">90</button>
+          <button type="button" data-q="120">120</button>
+        </div>
       </div>
       <div class="btn-row">
-        <button class="btn ghost" id="addCancel">annuleer</button>
-        <button class="btn primary" id="addSave">bewaar hier</button>
+        <button type="button" class="btn ghost" id="addCancel">annuleer</button>
+        <button type="button" class="btn primary" id="addSave">bewaar hier</button>
       </div>
     </div>
   </div>
@@ -186,10 +474,12 @@
 <script>
   const speedValue = document.getElementById('speedValue');
   const deltaLabel = document.getElementById('deltaLabel');
+  const driveLimit = document.getElementById('driveLimit');
   const progressRing = document.getElementById('progressRing');
   const gpsDot = document.getElementById('gpsDot');
   const gpsLabel = document.getElementById('gpsLabel');
   const limitNum = document.getElementById('limitNum');
+  const quickLimits = document.getElementById('quickLimits');
   const timeStat = document.getElementById('timeStat');
   const distStat = document.getElementById('distStat');
   const nowStat = document.getElementById('nowStat');
@@ -201,12 +491,33 @@
   const addPanel = document.getElementById('addPanel');
   const addName = document.getElementById('addName');
   const addLimitNum = document.getElementById('addLimitNum');
+  const addQuick = document.getElementById('addQuick');
   const addCancel = document.getElementById('addCancel');
   const addSave = document.getElementById('addSave');
+  const exportBtn = document.getElementById('exportBtn');
+  const importToggle = document.getElementById('importToggle');
+  const exportPanel = document.getElementById('exportPanel');
+  const importPanel = document.getElementById('importPanel');
+  const qrCanvas = document.getElementById('qrCanvas');
+  const exportLink = document.getElementById('exportLink');
+  const exportClose = document.getElementById('exportClose');
+  const copyLink = document.getElementById('copyLink');
+  const exportMsg = document.getElementById('exportMsg');
+  const importInput = document.getElementById('importInput');
+  const importCancel = document.getElementById('importCancel');
+  const importGo = document.getElementById('importGo');
 
   const CIRC = 2 * Math.PI * 110;
-  const TRIGGER_RADIUS_KM = 0.15;   // 150 m
-  const COOLDOWN_MS = 5 * 60 * 1000; // 5 min per punt na stoppen
+  const TRIGGER_RADIUS_KM = 0.15;
+  const COOLDOWN_MS = 5 * 60 * 1000;
+  const STILL_SPEED = 0.7;
+  const MOVE_SPEED = 1.8;
+  const STILL_AFTER_MS = 20000;
+  const LOW_POLL_MS = 8000;
+  const NEAR_KM = 1.5;
+  const MAX_POINTS = 300;
+  const HIGH_OPTS = { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 };
+  const LOW_OPTS = { enableHighAccuracy: false, maximumAge: 4000, timeout: 20000 };
 
   let limit = 90;
   let addLimit = 90;
@@ -217,11 +528,23 @@
   let lastKnownPos = null;
   let tickInterval = null;
   let watchId = null;
+  let lowTimer = null;
+  let gpsPower = 'high';
+  let hasFix = false;
+  let stillSince = null;
+  let anchorPos = null;
+  let anchorAt = 0;
+  let lastSpeedSample = null;
   let activePointId = null;
   let cooldowns = {};
+  let gpsGen = 0;
+  let audioCtx = null;
+  let lastOverAlert = 0;
+  let alarmOn = false;
 
   let points = [];
   try { points = JSON.parse(localStorage.getItem('tc_points') || '[]'); } catch(e){ points = []; }
+  if (!Array.isArray(points)) points = [];
 
   function savePoints(){ localStorage.setItem('tc_points', JSON.stringify(points)); }
 
@@ -239,35 +562,87 @@
     return m+':'+s;
   }
 
+  function newId(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
   function renderLocList(){
+    locList.replaceChildren();
     if (points.length === 0){
-      locList.innerHTML = '<div class="loc-empty">nog geen locaties bewaard</div>';
+      const empty = document.createElement('div');
+      empty.className = 'loc-empty';
+      empty.textContent = 'nog geen locaties bewaard';
+      locList.appendChild(empty);
       return;
     }
-    locList.innerHTML = points.map(p => `
-      <div class="loc-item">
-        <div class="loc-info">
-          <span class="loc-name">${p.name}</span>
-          <span class="loc-sub">limiet ${p.limit} km/u</span>
-        </div>
-        <button class="loc-del" data-id="${p.id}">✕</button>
-      </div>
-    `).join('');
-    locList.querySelectorAll('.loc-del').forEach(btn => {
-      btn.addEventListener('click', () => {
-        points = points.filter(p => p.id !== btn.dataset.id);
+    for (const p of points){
+      const item = document.createElement('div');
+      item.className = 'loc-item';
+      const info = document.createElement('div');
+      info.className = 'loc-info';
+      const name = document.createElement('span');
+      name.className = 'loc-name';
+      name.textContent = p.name;
+      const sub = document.createElement('span');
+      sub.className = 'loc-sub';
+      sub.textContent = 'limiet ' + p.limit + ' km/u';
+      info.append(name, sub);
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'loc-del';
+      del.setAttribute('aria-label', 'verwijder ' + p.name);
+      del.textContent = '✕';
+      del.addEventListener('click', () => {
+        points = points.filter(x => x.id !== p.id);
         savePoints();
         renderLocList();
+        refreshGpsLabel();
       });
+      item.append(info, del);
+      locList.appendChild(item);
+    }
+  }
+
+  function paintQuick(container, value){
+    container.querySelectorAll('button').forEach(btn => {
+      const on = Number(btn.dataset.q) === value;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
 
-  function updateLimitDisplay(){ limitNum.textContent = limit; render(); }
+  function updateLimitDisplay(){
+    limitNum.textContent = limit;
+    driveLimit.textContent = 'limiet ' + limit + ' km/u';
+    paintQuick(quickLimits, limit);
+    render();
+  }
+
+  function setAddLimit(value){
+    addLimit = value;
+    addLimitNum.textContent = addLimit;
+    paintQuick(addQuick, addLimit);
+  }
 
   document.getElementById('limitUp').addEventListener('click', () => { limit = Math.min(limit + 10, 130); updateLimitDisplay(); });
   document.getElementById('limitDown').addEventListener('click', () => { limit = Math.max(limit - 10, 30); updateLimitDisplay(); });
-  document.getElementById('addLimitUp').addEventListener('click', () => { addLimit = Math.min(addLimit + 10, 130); addLimitNum.textContent = addLimit; });
-  document.getElementById('addLimitDown').addEventListener('click', () => { addLimit = Math.max(addLimit - 10, 30); addLimitNum.textContent = addLimit; });
+  document.getElementById('addLimitUp').addEventListener('click', () => setAddLimit(Math.min(addLimit + 10, 130)));
+  document.getElementById('addLimitDown').addEventListener('click', () => setAddLimit(Math.max(addLimit - 10, 30)));
+  quickLimits.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      limit = Number(btn.dataset.q);
+      updateLimitDisplay();
+    });
+  });
+  addQuick.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => setAddLimit(Number(btn.dataset.q)));
+  });
+
+  function closeAddPanel(){
+    addPanel.hidden = true;
+    addToggle.hidden = false;
+    addName.value = '';
+  }
 
   addToggle.addEventListener('click', () => {
     if (!lastKnownPos){
@@ -275,21 +650,20 @@
       msg.className = 'msg';
       return;
     }
+    exportPanel.hidden = true;
+    importPanel.hidden = true;
     addPanel.hidden = false;
     addToggle.hidden = true;
+    paintQuick(addQuick, addLimit);
   });
 
-  addCancel.addEventListener('click', () => {
-    addPanel.hidden = true;
-    addToggle.hidden = false;
-    addName.value = '';
-  });
+  addCancel.addEventListener('click', closeAddPanel);
 
   addSave.addEventListener('click', () => {
     const name = addName.value.trim() || 'naamloze locatie';
     if (!lastKnownPos) return;
     points.push({
-      id: Date.now().toString(36),
+      id: newId(),
       name,
       lat: lastKnownPos.lat,
       lon: lastKnownPos.lon,
@@ -297,12 +671,61 @@
     });
     savePoints();
     renderLocList();
-    addPanel.hidden = true;
-    addToggle.hidden = false;
-    addName.value = '';
+    closeAddPanel();
     msg.textContent = '"' + name + '" bewaard';
     msg.className = 'msg info';
+    refreshGpsLabel();
   });
+
+  function unlockAudio(){
+    const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+    if (!AC) return null;
+    try {
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch(e){ return null; }
+    return audioCtx;
+  }
+  document.addEventListener('pointerdown', () => { unlockAudio(); });
+
+  function playOverAlert(){
+    if (navigator.vibrate) navigator.vibrate([600, 120, 600, 120, 600]);
+    const ctx = unlockAudio();
+    if (!ctx || ctx.state !== 'running') return;
+    const t0 = ctx.currentTime;
+    [740, 988, 740].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      const start = t0 + i * 0.18;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.2, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.16);
+    });
+  }
+
+  function alertIfOver(avg){
+    const isOver = avg > limit;
+    const clearlyUnder = avg <= limit - 1;
+    if (!running || !isOver){
+      if (alarmOn && (!running || clearlyUnder)){
+        alarmOn = false;
+        if (!running && navigator.vibrate) navigator.vibrate(0);
+      }
+      if (!running || clearlyUnder) lastOverAlert = 0;
+      return;
+    }
+    const now = Date.now();
+    if (lastOverAlert && now - lastOverAlert < 4000) return;
+    lastOverAlert = now;
+    alarmOn = true;
+    playOverAlert();
+  }
 
   function render(){
     const elapsedHours = startTime ? (Date.now() - startTime) / 3600000 : 0;
@@ -311,6 +734,9 @@
 
     speedValue.textContent = avg.toFixed(0);
     speedValue.classList.toggle('over', over);
+    document.body.classList.toggle('driving', running);
+    document.body.classList.toggle('overlimit', running && over);
+    driveLimit.textContent = 'limiet ' + limit + ' km/u';
 
     const frac = Math.min(avg / limit, 1) || 0;
     progressRing.style.strokeDashoffset = CIRC * (1 - frac);
@@ -330,11 +756,20 @@
       }
     } else {
       deltaLabel.textContent = '';
+      deltaLabel.className = 'delta';
     }
 
     const elapsedSec = startTime ? (Date.now() - startTime) / 1000 : 0;
     timeStat.textContent = fmtTime(elapsedSec);
     distStat.textContent = totalDistanceKm.toFixed(2).replace('.', ',');
+    alertIfOver(avg);
+  }
+
+  function forcePrecise(){
+    stillSince = null;
+    anchorPos = null;
+    anchorAt = 0;
+    applyGpsMode('high');
   }
 
   function startMeasuring(pointName){
@@ -342,9 +777,13 @@
     startTime = Date.now();
     totalDistanceKm = 0;
     lastPos = lastKnownPos;
+    lastOverAlert = 0;
+    alarmOn = false;
+    lastSpeedSample = lastKnownPos ? { lat: lastKnownPos.lat, lon: lastKnownPos.lon, t: Date.now() } : null;
+    forcePrecise();
     if (tickInterval) clearInterval(tickInterval);
     tickInterval = setInterval(render, 1000);
-    startBtn.textContent = 'stop bij het bord';
+    startBtn.textContent = 'STOP';
     startBtn.classList.remove('primary');
     startBtn.classList.add('danger');
     if (pointName){
@@ -355,16 +794,23 @@
       msg.textContent = '';
     }
     render();
+    refreshGpsLabel();
   }
 
   function stopMeasuring(){
     running = false;
     if (tickInterval) clearInterval(tickInterval);
+    tickInterval = null;
     if (activePointId) cooldowns[activePointId] = Date.now();
     activePointId = null;
     startBtn.textContent = 'opnieuw starten';
     startBtn.classList.remove('danger');
     startBtn.classList.add('primary');
+    if (alarmOn && navigator.vibrate) navigator.vibrate(0);
+    alarmOn = false;
+    lastOverAlert = 0;
+    render();
+    refreshGpsLabel();
   }
 
   function reset(){
@@ -372,18 +818,19 @@
     startTime = null;
     totalDistanceKm = 0;
     lastPos = null;
+    lastSpeedSample = null;
     nowStat.textContent = '–';
     msg.textContent = '';
     startBtn.textContent = 'start bij het bord';
     render();
   }
 
-  function checkAutoTrigger(pos){
+  function checkAutoTrigger(cur){
     if (running) return;
     for (const p of points){
       const lastStop = cooldowns[p.id];
       if (lastStop && (Date.now() - lastStop) < COOLDOWN_MS) continue;
-      const d = haversineKm(pos.lat, pos.lon, p.lat, p.lon);
+      const d = haversineKm(cur.lat, cur.lon, p.lat, p.lon);
       if (d <= TRIGGER_RADIUS_KM){
         limit = p.limit;
         updateLimitDisplay();
@@ -394,67 +841,775 @@
     }
   }
 
-  function onPosition(pos){
-    gpsDot.classList.add('live');
-    gpsDot.classList.remove('armed');
-    gpsLabel.textContent = running ? 'meet gemiddelde' : (points.length ? 'volgt ' + points.length + ' locatie(s)' : 'gps actief');
+  function updateNowSpeed(pos, cur){
+    const speed = pos.coords.speed;
+    if (typeof speed === 'number' && isFinite(speed) && speed >= 0){
+      nowStat.textContent = Math.round(speed * 3.6);
+      lastSpeedSample = { lat: cur.lat, lon: cur.lon, t: Date.now() };
+      return;
+    }
+    if (lastSpeedSample){
+      const dt = (Date.now() - lastSpeedSample.t) / 1000;
+      if (dt >= 0.4 && dt <= 20){
+        const kmh = haversineKm(lastSpeedSample.lat, lastSpeedSample.lon, cur.lat, cur.lon) / dt * 3600;
+        if (kmh >= 0 && kmh < 250) nowStat.textContent = Math.round(kmh);
+      }
+    }
+    lastSpeedSample = { lat: cur.lat, lon: cur.lon, t: Date.now() };
+  }
 
+  function preciseEnough(pos){
+    if (gpsPower !== 'high') return false;
+    const acc = pos.coords.accuracy;
+    if (typeof acc === 'number' && acc > 60) return false;
+    return true;
+  }
+
+  function nearAnyPoint(cur, km){
+    for (const p of points){
+      if (haversineKm(cur.lat, cur.lon, p.lat, p.lon) <= km) return true;
+    }
+    return false;
+  }
+
+  function canSavePower(cur){
+    if (running) return true;
+    return !nearAnyPoint(cur, NEAR_KM);
+  }
+
+  function classifyMotion(pos, cur){
+    const speed = pos.coords.speed;
+    if (typeof speed === 'number' && isFinite(speed) && speed >= 0){
+      anchorPos = cur;
+      anchorAt = Date.now();
+      if (speed >= MOVE_SPEED) return 'move';
+      if (speed <= STILL_SPEED) return 'still';
+      return 'keep';
+    }
+    if (!anchorPos){
+      anchorPos = cur;
+      anchorAt = Date.now();
+      return 'keep';
+    }
+    const dt = Date.now() - anchorAt;
+    if (dt < 4000) return 'keep';
+    const meters = haversineKm(anchorPos.lat, anchorPos.lon, cur.lat, cur.lon) * 1000;
+    anchorPos = cur;
+    anchorAt = Date.now();
+    if (meters >= 15) return 'move';
+    if (meters <= 8) return 'still';
+    return 'keep';
+  }
+
+  function noteMotion(pos, cur){
+    const motion = classifyMotion(pos, cur);
+    if (motion === 'move'){
+      stillSince = null;
+      if (gpsPower !== 'high') applyGpsMode('high');
+    } else if (motion === 'still'){
+      if (!stillSince) stillSince = Date.now();
+      if (!canSavePower(cur)){
+        if (gpsPower !== 'high') applyGpsMode('high');
+      } else if (gpsPower === 'high' && Date.now() - stillSince >= STILL_AFTER_MS){
+        applyGpsMode('low');
+      }
+    }
+    if (!running && gpsPower === 'low' && nearAnyPoint(cur, NEAR_KM)) applyGpsMode('high');
+  }
+
+  function refreshGpsLabel(){
+    if (!hasFix){
+      gpsDot.className = 'dot armed';
+      gpsLabel.textContent = 'gps zoekt...';
+      return;
+    }
+    if (running){
+      gpsDot.className = gpsPower === 'low' ? 'dot save' : 'dot live';
+      gpsLabel.textContent = 'meet gemiddelde';
+      return;
+    }
+    if (gpsPower === 'low'){
+      gpsDot.className = 'dot save';
+      gpsLabel.textContent = 'spaarstand';
+      return;
+    }
+    gpsDot.className = 'dot live';
+    gpsLabel.textContent = points.length ? 'volgt ' + points.length + ' locatie(s)' : 'gps actief';
+  }
+
+  function onPosition(pos){
+    hasFix = true;
     const cur = { lat: pos.coords.latitude, lon: pos.coords.longitude };
     lastKnownPos = cur;
 
-    if (pos.coords.speed !== null && pos.coords.speed >= 0){
-      nowStat.textContent = Math.round(pos.coords.speed * 3.6);
-    }
+    updateNowSpeed(pos, cur);
 
     if (running){
       if (lastPos){
         const d = haversineKm(lastPos.lat, lastPos.lon, cur.lat, cur.lon);
-        if (d < 1) totalDistanceKm += d;
+        const speed = pos.coords.speed;
+        const acc = typeof pos.coords.accuracy === 'number' ? pos.coords.accuracy : null;
+        const still = gpsPower === 'low' || (typeof speed === 'number' && speed >= 0 && speed <= STILL_SPEED);
+        const meters = d * 1000;
+        const jitter = still && (meters < 40 || (acc !== null && meters < Math.max(acc, 12)));
+        if (d > 0 && d < 1 && !jitter) totalDistanceKm += d;
       }
       lastPos = cur;
       render();
-    } else {
+    } else if (preciseEnough(pos)){
       checkAutoTrigger(cur);
     }
+
+    noteMotion(pos, cur);
+    refreshGpsLabel();
   }
 
   function onPosError(err){
-    gpsDot.classList.remove('live', 'armed');
+    gpsDot.className = 'dot';
     gpsLabel.textContent = 'gps fout';
-    msg.textContent = err.code === 1
+    if (msg.classList.contains('info')) return;
+    msg.textContent = err && err.code === 1
       ? 'geef locatietoegang vrij om te starten'
       : 'gps-signaal kwijt, blijft doortellen';
+    msg.className = 'msg';
+  }
+
+  function stopGps(){
+    if (watchId !== null && navigator.geolocation){
+      navigator.geolocation.clearWatch(watchId);
+    }
+    watchId = null;
+    if (lowTimer){
+      clearInterval(lowTimer);
+      lowTimer = null;
+    }
+  }
+
+  function applyGpsMode(mode){
+    const same = mode === gpsPower && ((mode === 'high' && watchId !== null) || (mode === 'low' && lowTimer !== null));
+    if (same) return;
+    stopGps();
+    gpsPower = mode;
+    const gen = ++gpsGen;
+    if (!navigator.geolocation){
+      msg.textContent = 'gps niet beschikbaar op dit toestel';
+      msg.className = 'msg';
+      return;
+    }
+    const onOk = (pos) => { if (gen === gpsGen) onPosition(pos); };
+    const onErr = (err) => { if (gen === gpsGen) onPosError(err); };
+    if (mode === 'high'){
+      const id = navigator.geolocation.watchPosition(onOk, onErr, HIGH_OPTS);
+      if (gen === gpsGen) watchId = id;
+      else navigator.geolocation.clearWatch(id);
+    } else {
+      const poll = () => {
+        if (gen !== gpsGen) return;
+        navigator.geolocation.getCurrentPosition(onOk, onErr, LOW_OPTS);
+      };
+      poll();
+      if (gen === gpsGen) lowTimer = setInterval(poll, running ? 3000 : LOW_POLL_MS);
+    }
+    if (!hasFix){
+      gpsDot.className = 'dot armed';
+      gpsLabel.textContent = 'gps zoekt...';
+    }
   }
 
   function ensureWatch(){
-    if (watchId !== null) return;
-    if (!navigator.geolocation){
-      msg.textContent = 'gps niet beschikbaar op dit toestel';
-      return;
-    }
-    watchId = navigator.geolocation.watchPosition(onPosition, onPosError, {
-      enableHighAccuracy: true,
-      maximumAge: 1000,
-      timeout: 15000
-    });
-    gpsDot.classList.add('armed');
-    gpsLabel.textContent = 'gps zoekt...';
+    if (watchId !== null || lowTimer !== null) return;
+    applyGpsMode('high');
   }
 
   startBtn.addEventListener('click', () => {
+    unlockAudio();
     ensureWatch();
-    if (!running){
-      startMeasuring(null);
-    } else {
-      stopMeasuring();
-    }
+    if (!running) startMeasuring(null);
+    else stopMeasuring();
   });
 
   resetBtn.addEventListener('click', reset);
 
+  function bytesToB64url(bytes){
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000){
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
+  }
+
+  function b64urlToBytes(s){
+    let t = String(s).replace(/-/g, '+').replace(/_/g, '/');
+    while (t.length % 4) t += '=';
+    const bin = atob(t);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function packPoint(p){
+    return {
+      id: p.id,
+      n: String(p.name || '').slice(0, 80),
+      a: Math.round(Number(p.lat) * 1e6) / 1e6,
+      o: Math.round(Number(p.lon) * 1e6) / 1e6,
+      l: p.limit
+    };
+  }
+
+  function cleanId(id){
+    return String(id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+  }
+
+  function normalizeIncoming(p){
+    if (!p || typeof p !== 'object') return null;
+    const lat = Number(p.a != null ? p.a : p.lat);
+    const lon = Number(p.o != null ? p.o : p.lon);
+    let lim = Number(p.l != null ? p.l : p.limit);
+    const name = String(p.n != null ? p.n : (p.name || 'naamloze locatie')).trim().slice(0, 80) || 'naamloze locatie';
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    if (!Number.isFinite(lim)) lim = 90;
+    lim = Math.max(30, Math.min(130, Math.round(lim)));
+    return { id: cleanId(p.id), name, lat, lon, limit: lim };
+  }
+
+  async function shareEncode(list){
+    const json = JSON.stringify({ v: 1, p: list.map(packPoint) });
+    const raw = new TextEncoder().encode(json);
+    let payload = 'j' + bytesToB64url(raw);
+    try {
+      if (typeof CompressionStream !== 'undefined'){
+        const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+        const z = new Uint8Array(await new Response(stream).arrayBuffer());
+        const zPayload = 'z' + bytesToB64url(z);
+        if (zPayload.length < payload.length) payload = zPayload;
+      }
+    } catch(e){}
+    const base = location.href.split('#')[0];
+    return base + '#tc=' + payload;
+  }
+
+  function extractPayload(text){
+    const t = String(text || '').trim();
+    const hash = t.match(/#tc=([^#\s]+)/);
+    if (hash) return decodeURIComponent(hash[1]);
+    const q = t.match(/[?&]tc=([^&\s]+)/);
+    if (q) return decodeURIComponent(q[1]);
+    if (t.startsWith('z') || t.startsWith('j')) return t;
+    return '';
+  }
+
+  async function shareDecode(text){
+    const payload = extractPayload(text);
+    if (!payload || (payload[0] !== 'z' && payload[0] !== 'j')) throw new Error('bad');
+    const bytes = b64urlToBytes(payload.slice(1));
+    let json;
+    if (payload[0] === 'z'){
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      json = await new Response(stream).text();
+    } else {
+      json = new TextDecoder().decode(bytes);
+    }
+    const data = JSON.parse(json);
+    const arr = data && Array.isArray(data.p) ? data.p : null;
+    if (!arr) throw new Error('bad');
+    return arr.map(normalizeIncoming).filter(Boolean).slice(0, MAX_POINTS);
+  }
+
+  function mergeIncoming(incoming){
+    let added = 0, updated = 0, skipped = 0;
+    for (const inc of incoming){
+      if (inc.id){
+        const byId = points.find(p => p.id === inc.id);
+        if (byId){
+          const same = byId.name === inc.name && byId.limit === inc.limit
+            && Math.abs(byId.lat - inc.lat) < 1e-6 && Math.abs(byId.lon - inc.lon) < 1e-6;
+          if (same) skipped++;
+          else {
+            byId.name = inc.name;
+            byId.lat = inc.lat;
+            byId.lon = inc.lon;
+            byId.limit = inc.limit;
+            updated++;
+          }
+          continue;
+        }
+      }
+      const dup = points.find(p => p.name === inc.name && haversineKm(p.lat, p.lon, inc.lat, inc.lon) < 0.03);
+      if (dup){ skipped++; continue; }
+      if (points.length >= MAX_POINTS){ skipped++; continue; }
+      points.push({
+        id: inc.id || newId(),
+        name: inc.name,
+        lat: inc.lat,
+        lon: inc.lon,
+        limit: inc.limit
+      });
+      added++;
+    }
+    if (added || updated) savePoints();
+    return { added, updated, skipped };
+  }
+
+  function importSummary(r){
+    if (!r.added && !r.updated) return 'geen nieuwe locaties in deze link';
+    const parts = [];
+    if (r.added === 1) parts.push('1 locatie geïmporteerd');
+    else if (r.added) parts.push(r.added + ' locaties geïmporteerd');
+    if (r.updated === 1) parts.push('1 bijgewerkt');
+    else if (r.updated) parts.push(r.updated + ' bijgewerkt');
+    return parts.join(', ');
+  }
+
+  async function importText(text){
+    const incoming = await shareDecode(text);
+    if (!incoming.length) throw new Error('empty');
+    const result = mergeIncoming(incoming);
+    renderLocList();
+    refreshGpsLabel();
+    msg.textContent = importSummary(result);
+    msg.className = 'msg info';
+    return result;
+  }
+
+  function drawQr(canvas, matrix){
+    const n = matrix.length;
+    const quiet = 4;
+    const scale = 3;
+    const dim = (n + quiet * 2) * scale;
+    canvas.width = dim;
+    canvas.height = dim;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, dim, dim);
+    ctx.fillStyle = '#10141b';
+    for (let r = 0; r < n; r++){
+      for (let c = 0; c < n; c++){
+        if (matrix[r][c]) ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
+      }
+    }
+  }
+
+  function closeSharePanels(){
+    exportPanel.hidden = true;
+    importPanel.hidden = true;
+  }
+
+  exportBtn.addEventListener('click', async () => {
+    if (!points.length){
+      msg.textContent = 'nog geen locaties om te delen';
+      msg.className = 'msg';
+      return;
+    }
+    closeAddPanel();
+    importPanel.hidden = true;
+    exportMsg.textContent = '';
+    exportPanel.hidden = false;
+    exportLink.value = 'link maken…';
+    try {
+      const link = await shareEncode(points);
+      exportLink.value = link;
+      const matrix = makeQrMatrix(link);
+      if (matrix){
+        qrCanvas.hidden = false;
+        drawQr(qrCanvas, matrix);
+        exportMsg.textContent = '';
+      } else {
+        qrCanvas.hidden = true;
+        exportMsg.textContent = 'te veel locaties voor een QR-code, gebruik de link';
+        exportMsg.className = 'msg panel-msg';
+      }
+    } catch(e){
+      exportLink.value = '';
+      exportMsg.textContent = 'delen lukt nu niet';
+      exportMsg.className = 'msg panel-msg';
+    }
+  });
+
+  exportClose.addEventListener('click', () => { exportPanel.hidden = true; });
+
+  copyLink.addEventListener('click', async () => {
+    const link = exportLink.value;
+    if (!link || link.indexOf('#tc=') === -1) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(link);
+        exportMsg.textContent = 'link gekopieerd';
+        exportMsg.className = 'msg panel-msg info';
+        return;
+      }
+    } catch(e){}
+    exportLink.focus();
+    exportLink.select();
+    exportMsg.textContent = 'selecteer de link en kopieer die zelf';
+    exportMsg.className = 'msg panel-msg';
+  });
+
+  importToggle.addEventListener('click', () => {
+    closeAddPanel();
+    exportPanel.hidden = true;
+    importPanel.hidden = false;
+    importInput.focus();
+  });
+  importCancel.addEventListener('click', () => {
+    importPanel.hidden = true;
+    importInput.value = '';
+  });
+  importGo.addEventListener('click', async () => {
+    try {
+      await importText(importInput.value);
+      importPanel.hidden = true;
+      importInput.value = '';
+    } catch(e){
+      msg.textContent = 'deze link bevat geen geldige locaties';
+      msg.className = 'msg';
+    }
+  });
+
+  async function importFromLocation(){
+    const raw = (location.hash && location.hash.indexOf('tc=') !== -1)
+      ? location.hash
+      : (location.search && location.search.indexOf('tc=') !== -1 ? location.search : '');
+    if (!raw) return;
+    try {
+      await importText(raw);
+      const clean = location.pathname + location.search.replace(/([?&])tc=[^&]*&?/g, '$1').replace(/[?&]$/, '');
+      if (history.replaceState) history.replaceState(null, '', clean || location.pathname);
+    } catch(e){
+      msg.textContent = 'deze link bevat geen geldige locaties';
+      msg.className = 'msg';
+    }
+  }
+
+  const EXP = new Uint8Array(512);
+  const LOG = new Uint8Array(256);
+  {
+    let x = 1;
+    for (let i = 0; i < 255; i++){
+      EXP[i] = x; LOG[x] = i;
+      x <<= 1; if (x & 0x100) x ^= 0x11d;
+    }
+    for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  }
+  function gfMul(a, b){ if (!a || !b) return 0; return EXP[LOG[a] + LOG[b]]; }
+  const genCache = {};
+  function rsGen(ecLen){
+    if (genCache[ecLen]) return genCache[ecLen];
+    const res = new Array(ecLen).fill(0);
+    res[ecLen - 1] = 1;
+    let root = 1;
+    for (let i = 0; i < ecLen; i++){
+      for (let j = 0; j < ecLen; j++){
+        res[j] = gfMul(res[j], root);
+        if (j + 1 < ecLen) res[j] ^= res[j + 1];
+      }
+      root = gfMul(root, 2);
+    }
+    genCache[ecLen] = res;
+    return res;
+  }
+  function rsRemainder(data, ecLen){
+    const div = rsGen(ecLen);
+    const result = new Uint8Array(ecLen);
+    for (let i = 0; i < data.length; i++){
+      const factor = data[i] ^ result[0];
+      result.copyWithin(0, 1);
+      result[ecLen - 1] = 0;
+      for (let j = 0; j < ecLen; j++) result[j] ^= gfMul(div[j], factor);
+    }
+    return result;
+  }
+  const ECC = `1:19:7|1:16:10
+1:34:10|1:28:16
+1:55:15|1:44:26
+1:80:20|2:32:18
+1:108:26|2:43:24
+2:68:18|4:27:16
+2:78:20|4:31:18
+2:97:24|2:38:22,2:39:22
+2:116:30|3:36:22,2:37:22
+2:68:18,2:69:18|4:43:26,1:44:26
+4:81:20|1:50:30,4:51:30
+2:92:24,2:93:24|6:36:22,2:37:22
+4:107:26|8:37:22,1:38:22
+3:115:30,1:116:30|4:40:24,5:41:24
+5:87:22,1:88:22|5:41:24,5:42:24
+5:98:24,1:99:24|7:45:28,3:46:28
+1:107:28,5:108:28|10:46:28,1:47:28
+5:120:30,1:121:30|9:43:26,4:44:26
+3:113:28,4:114:28|3:44:26,11:45:26
+3:107:28,5:108:28|3:41:26,13:42:26
+4:116:28,4:117:28|17:42:26
+2:111:28,7:112:28|17:46:28
+4:121:30,5:122:30|4:47:28,14:48:28
+6:117:30,4:118:30|6:45:28,14:46:28
+8:106:26,4:107:26|8:47:28,13:48:28
+10:114:28,2:115:28|19:46:28,4:47:28
+8:122:30,4:123:30|22:45:28,3:46:28
+3:117:30,10:118:30|3:45:28,23:46:28
+7:116:30,7:117:30|21:45:28,7:46:28
+5:115:30,10:116:30|19:47:28,10:48:28
+13:115:30,3:116:30|2:46:28,29:47:28
+17:115:30|10:46:28,23:47:28
+17:115:30,1:116:30|14:46:28,21:47:28
+13:115:30,6:116:30|14:46:28,23:47:28
+12:121:30,7:122:30|12:47:28,26:48:28
+6:121:30,14:122:30|6:47:28,34:48:28
+17:122:30,4:123:30|29:46:28,14:47:28
+4:122:30,18:123:30|13:46:28,32:47:28
+20:117:30,4:118:30|40:47:28,7:48:28
+19:118:30,6:119:30|18:47:28,31:48:28`.trim().split('\n');
+  const ALIGN = [null,null,[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]];
+  const FORMAT = [0x5412,0x5125,0x5e7c,0x5b4b,0x45f9,0x40ce,0x4f97,0x4aa0,0x77c4,0x72f3,0x7daa,0x789d,0x662f,0x6318,0x6c41,0x6976,0x1689,0x13be,0x1ce7,0x19d0,0x0762,0x0255,0x0d0c,0x083b,0x355f,0x3068,0x3f31,0x3a06,0x24b4,0x2183,0x2eda,0x2bed];
+  const VERSION = [0x07c94,0x085bc,0x09a99,0x0a4d3,0x0bbf6,0x0c762,0x0d847,0x0e60d,0x0f928,0x10b78,0x1145d,0x12a17,0x13532,0x149a6,0x15683,0x168c9,0x177ec,0x18ec4,0x191e1,0x1afab,0x1b08e,0x1cc1a,0x1d33f,0x1ed75,0x1f250,0x209d5,0x216f0,0x228ba,0x2379f,0x24b0b,0x2542e,0x26a64,0x27541,0x28c69];
+  const FINDER = [
+    [0,0,0,0,0,0,0,0,0],
+    [0,1,1,1,1,1,1,1,0],
+    [0,1,0,0,0,0,0,1,0],
+    [0,1,0,1,1,1,0,1,0],
+    [0,1,0,1,1,1,0,1,0],
+    [0,1,0,1,1,1,0,1,0],
+    [0,1,0,0,0,0,0,1,0],
+    [0,1,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0]
+  ];
+  function eccGroups(version, level){
+    const part = ECC[version - 1].split('|')[level === 'L' ? 0 : 1];
+    return part.split(',').map(s => {
+      const [n, d, e] = s.split(':').map(Number);
+      return { count: n, data: d, ec: e };
+    });
+  }
+  function dataCapacity(version, level){
+    return eccGroups(version, level).reduce((s, g) => s + g.count * g.data, 0);
+  }
+  function remainderBits(version){
+    if (version >= 2 && version <= 6) return 7;
+    if ((version >= 14 && version <= 20) || (version >= 28 && version <= 34)) return 3;
+    if (version >= 21 && version <= 27) return 4;
+    return 0;
+  }
+  function buildData(bytes, version, capacity){
+    const bits = [];
+    const put = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+    put(0b0100, 4);
+    put(bytes.length, version <= 9 ? 8 : 16);
+    for (const b of bytes) put(b, 8);
+    const capBits = capacity * 8;
+    const term = Math.min(4, Math.max(0, capBits - bits.length));
+    for (let i = 0; i < term; i++) bits.push(0);
+    while (bits.length % 8) bits.push(0);
+    const out = [];
+    for (let i = 0; i < bits.length; i += 8){
+      let v = 0;
+      for (let j = 0; j < 8; j++) v = (v << 1) | bits[i + j];
+      out.push(v);
+    }
+    const pads = [0xEC, 0x11];
+    let p = 0;
+    while (out.length < capacity) out.push(pads[p++ % 2]);
+    if (out.length !== capacity) throw new Error('len');
+    return out;
+  }
+  function interleave(groups, codewords){
+    const dataBlocks = [];
+    const ecBlocks = [];
+    let offset = 0;
+    for (const g of groups){
+      for (let i = 0; i < g.count; i++){
+        const block = codewords.slice(offset, offset + g.data);
+        offset += g.data;
+        dataBlocks.push(block);
+        ecBlocks.push(Array.from(rsRemainder(block, g.ec)));
+      }
+    }
+    const out = [];
+    const maxD = Math.max(...dataBlocks.map(b => b.length));
+    for (let i = 0; i < maxD; i++) for (const b of dataBlocks) if (i < b.length) out.push(b[i]);
+    const maxE = ecBlocks[0].length;
+    for (let i = 0; i < maxE; i++) for (const b of ecBlocks) out.push(b[i]);
+    return out;
+  }
+  function maskBit(m, r, c){
+    switch (m){
+      case 0: return ((r + c) & 1) === 0;
+      case 1: return (r & 1) === 0;
+      case 2: return c % 3 === 0;
+      case 3: return (r + c) % 3 === 0;
+      case 4: return (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0;
+      case 5: return ((r * c) % 2 + (r * c) % 3) === 0;
+      case 6: return (((r * c) % 2 + (r * c) % 3) & 1) === 0;
+      default: return (((r + c) & 1) + (r * c) % 3) % 2 === 0;
+    }
+  }
+  function penalty(m){
+    const n = m.length;
+    let n1 = 0, n2 = 0, n3 = 0, dark = 0;
+    for (let r = 0; r < n; r++){
+      let runR = 1, runC = 1;
+      for (let c = 0; c < n; c++){
+        dark += m[r][c] ? 1 : 0;
+        if (c){
+          if (m[r][c] === m[r][c-1]) runR++; else { if (runR >= 5) n1 += runR - 2; runR = 1; }
+          if (m[c][r] === m[c-1][r]) runC++; else { if (runC >= 5) n1 += runC - 2; runC = 1; }
+          if (r && m[r][c] === m[r][c-1] && m[r][c] === m[r-1][c] && m[r][c] === m[r-1][c-1]) n2 += 3;
+        }
+      }
+      if (runR >= 5) n1 += runR - 2;
+      if (runC >= 5) n1 += runC - 2;
+      n3 += n3score(m[r]);
+      const col = [];
+      for (let i = 0; i < n; i++) col.push(m[i][r]);
+      n3 += n3score(col);
+    }
+    const percent = dark * 100 / (n * n);
+    const n4 = 10 * Math.floor(Math.abs(percent - 50) / 5);
+    return n1 + n2 + n3 + n4;
+  }
+  function n3score(seq){
+    const n = seq.length;
+    const pat = [1,0,1,1,1,0,1];
+    let count = 0;
+    for (let i = 0; i <= n - 7; i++){
+      let ok = true;
+      for (let k = 0; k < 7; k++) if (seq[i+k] !== pat[k]) { ok = false; break; }
+      if (!ok) continue;
+      const left = seq.slice(Math.max(0, i - 4), i);
+      const right = seq.slice(i + 7, Math.min(n, i + 11));
+      if ((i === 0 || i === n - 7) || (left.length >= 1 && left.every(v => !v)) || (right.length >= 1 && right.every(v => !v))) count += 40;
+    }
+    return count;
+  }
+  function makeMatrix(textBytes, version, level){
+    const groups = eccGroups(version, level);
+    const cap = dataCapacity(version, level);
+    const data = buildData(textBytes, version, cap);
+    const cw = interleave(groups, data);
+    const bits = [];
+    for (const b of cw) for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1);
+    for (let i = 0; i < remainderBits(version); i++) bits.push(0);
+    const n = 17 + 4 * version;
+    const matrix = Array.from({length: n}, () => Array(n).fill(2));
+    const isFn = Array.from({length: n}, () => Array(n).fill(0));
+    const setFn = (r, c, v) => { matrix[r][c] = v; isFn[r][c] = 1; };
+    if (version >= 7){
+      for (let i = 0; i < 6; i++){
+        setFn(i, n - 11, 0); setFn(i, n - 10, 0); setFn(i, n - 9, 0);
+        setFn(n - 11, i, 0); setFn(n - 10, i, 0); setFn(n - 9, i, 0);
+      }
+    }
+    for (let i = 0; i < 9; i++){
+      setFn(i, 8, 0); setFn(8, i, 0);
+      if (i){ setFn(n - i, 8, 0); setFn(8, n - i, 0); }
+    }
+    let bit = 1;
+    for (let i = 8; i < n - 8; i++){
+      setFn(i, 6, bit); setFn(6, i, bit); bit ^= 1;
+    }
+    const corners = [[0, 0], [0, n - 8], [n - 8, 0]];
+    for (const [i, j] of corners){
+      const offset = i === 0 ? 1 : 0;
+      const sepoffset = j !== 0 ? 0 : 1;
+      for (let r = 0; r < 8; r++){
+        for (let c = 0; c < 8; c++) setFn(i + r, j + c, FINDER[offset + r][sepoffset + c]);
+      }
+    }
+    if (version >= 2){
+      const pos = ALIGN[version];
+      const min = pos[0], max = pos[pos.length - 1];
+      const skip = new Set([min+','+min, min+','+max, max+','+min]);
+      for (const x of pos) for (const y of pos){
+        if (skip.has(x+','+y)) continue;
+        for (let r = -2; r <= 2; r++) for (let c = -2; c <= 2; c++){
+          const ar = Math.max(Math.abs(r), Math.abs(c));
+          setFn(x + r, y + c, ar === 1 ? 0 : 1);
+        }
+      }
+    }
+    setFn(n - 8, 8, 1);
+    let idx = 0;
+    for (let col = n - 1; col > 0; col -= 2){
+      const right = col <= 6 ? col - 1 : col;
+      for (let vertical = 0; vertical < n; vertical++){
+        for (let z = 0; z < 2; z++){
+          const j = right - z;
+          let upwards = (right & 2) === 0;
+          if (j < 6) upwards = !upwards;
+          const i = upwards ? (n - 1 - vertical) : vertical;
+          if (matrix[i][j] === 2){
+            if (idx >= bits.length) throw new Error('placement');
+            matrix[i][j] = bits[idx++];
+          }
+        }
+      }
+    }
+    if (idx !== bits.length) throw new Error('placement');
+    function apply(mask){
+      const m = matrix.map(row => row.slice());
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++){
+        if (!isFn[r][c] && maskBit(mask, r, c)) m[r][c] ^= 1;
+      }
+      return m;
+    }
+    function writeFormat(m, mask){
+      const formatInfo = FORMAT[(level === 'L' ? 8 : 0) + mask];
+      let voffset = 0, hoffset = 0;
+      for (let i = 0; i < 8; i++){
+        const vbit = (formatInfo >> i) & 1;
+        const hbit = (formatInfo >> (14 - i)) & 1;
+        if (i === 6){ voffset += 1; hoffset = 1; }
+        m[i + voffset][8] = vbit;
+        m[8][i + hoffset] = hbit;
+        m[8][n - 1 - i] = vbit;
+        m[n - 1 - i][8] = hbit;
+      }
+      m[n - 8][8] = 1;
+      if (version >= 7){
+        const info = VERSION[version - 7];
+        for (let i = 0; i < 6; i++){
+          const b1 = (info >> (i * 3)) & 1;
+          const b2 = (info >> (i * 3 + 1)) & 1;
+          const b3 = (info >> (i * 3 + 2)) & 1;
+          m[n - 11][i] = b1; m[n - 10][i] = b2; m[n - 9][i] = b3;
+          m[i][n - 11] = b1; m[i][n - 10] = b2; m[i][n - 9] = b3;
+        }
+      }
+    }
+    let best = null, bestScore = Infinity;
+    for (let mask = 0; mask < 8; mask++){
+      const m = apply(mask);
+      writeFormat(m, mask);
+      const score = penalty(m);
+      if (score < bestScore){ bestScore = score; best = m; }
+    }
+    return best;
+  }
+  function makeQrMatrix(text){
+    const bytes = Array.from(new TextEncoder().encode(String(text)));
+    let chosen = null;
+    for (const level of ['M', 'L']){
+      for (let v = 1; v <= 40; v++){
+        const cc = v <= 9 ? 8 : 16;
+        if (4 + cc + bytes.length * 8 <= dataCapacity(v, level) * 8){
+          chosen = { v, level };
+          break;
+        }
+      }
+      if (chosen) break;
+    }
+    if (!chosen) return null;
+    try { return makeMatrix(bytes, chosen.v, chosen.level); }
+    catch(e){ return null; }
+  }
+
   renderLocList();
+  paintQuick(quickLimits, limit);
+  paintQuick(addQuick, addLimit);
   ensureWatch();
   render();
+  window.addEventListener('hashchange', () => { importFromLocation(); });
+  importFromLocation();
 </script>
 </body>
 </html>

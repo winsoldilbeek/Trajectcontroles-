@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trajectcontrole — gemiddelde snelheid</title>
 <style>
   :root{
@@ -17,22 +17,30 @@
     --blue: #2f6fd6;
   }
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html{ color-scheme: dark; }
   html, body{
-    margin:0; padding:0; height:100%;
+    margin:0; padding:0; min-height:100%;
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     overscroll-behavior: none;
   }
+  body{ min-height: 100dvh; }
   body.overlimit{ background: #2a1411; }
   .app{
-    max-width: 420px;
+    width: 100%;
+    max-width: 480px;
     margin: 0 auto;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    padding: max(22px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+    padding:
+      max(16px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(20px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
   }
+  .meter{ display: flex; flex-direction: column; }
   body.overlimit .app{ background: #2a1411; }
   header{
     display:flex;
@@ -54,15 +62,21 @@
     100%{ box-shadow: 0 0 0 0 rgba(47,111,214,0); }
   }
 
-  .gauge-wrap{ position: relative; width: 250px; height: 250px; margin: 24px auto 6px; }
+  .gauge-wrap{
+    position: relative;
+    width: min(250px, 72vw);
+    height: min(250px, 72vw);
+    margin: 20px auto 6px;
+    container-type: inline-size;
+  }
   .gauge-wrap svg{ width:100%; height:100%; transform: rotate(-90deg); }
   .gauge-wrap circle{ fill:none; stroke-width: 14; }
   .track{ stroke: var(--surface); }
   .progress{ stroke: var(--safe); stroke-linecap: round; transition: stroke-dashoffset .5s ease, stroke .3s ease; }
   .progress.over{ stroke: var(--warn); }
 
-  .gauge-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 28px; text-align:center; }
-  .speed-value{ font-size: 60px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--safe); transition: color .3s ease; }
+  .gauge-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 12%; text-align:center; }
+  .speed-value{ font-size: clamp(48px, 26cqi, 76px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--safe); transition: color .3s ease; }
   .speed-value.over{ color: var(--warn); }
   .speed-unit{ font-size: 13px; color: var(--text-dim); margin-top: 6px; }
   .delta{ font-size: 13px; margin-top: 10px; font-weight: 600; color: var(--text-dim); min-height: 18px; }
@@ -73,17 +87,17 @@
   .limit-setup{ margin-top: 18px; }
   .limit-caption{ text-align:center; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
   .limit-line{ display:flex; align-items:center; justify-content:center; gap: 8px; flex-wrap: nowrap; }
-  .limit-row{ display:flex; align-items:center; justify-content:center; gap: 10px; flex-wrap: wrap; }
   .limit-label{ font-size: 13px; color: var(--text-dim); }
   .stepper{ display:flex; align-items:center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; flex: 0 0 auto; }
-  .stepper button{ width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent; color: var(--text); font-size: 19px; font-weight: 600; display:flex; align-items:center; justify-content:center; font-family: inherit; }
+  .stepper button{ width: 44px; height: 44px; border-radius: 50%; border: none; background: transparent; color: var(--text); font-size: 20px; font-weight: 600; display:flex; align-items:center; justify-content:center; font-family: inherit; cursor: pointer; touch-action: manipulation; }
   .stepper button:active{ background: var(--line); }
-  .stepper .limit-num{ width: 42px; text-align:center; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .quick-limits{ display:flex; gap: 4px; flex: 0 0 auto; }
+  .stepper .limit-num{ width: 44px; text-align:center; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .quick-limits{ display:flex; gap: 6px; flex: 0 0 auto; }
   .quick-limits button{
-    min-width: 40px; height: 34px; padding: 0 6px; border-radius: 999px;
+    min-width: 44px; height: 44px; padding: 0 8px; border-radius: 999px;
     border: 1px solid var(--line); background: var(--surface); color: var(--text);
-    font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: inherit;
+    font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: inherit;
+    cursor: pointer; touch-action: manipulation;
   }
   .quick-limits button.active{ background: var(--blue); border-color: var(--blue); color: #fff; }
   .quick-limits button:active{ transform: scale(0.97); }
@@ -98,7 +112,7 @@
   .msg.info{ color: var(--blue); }
 
   .controls{ margin-top: 18px; display:flex; gap: 10px; }
-  .btn{ flex:1; border-radius: 14px; padding: 15px 0; font-size: 15px; font-weight: 700; color: var(--text); background: var(--surface); border: 1px solid var(--line); font-family: inherit; }
+  .btn{ flex:1; border-radius: 14px; padding: 15px 10px; min-height: 48px; font-size: 15px; font-weight: 700; color: var(--text); background: var(--surface); border: 1px solid var(--line); font-family: inherit; cursor: pointer; touch-action: manipulation; }
   .btn:active{ transform: scale(0.98); }
   .btn.primary{ background: var(--blue); border-color: var(--blue); }
   .btn.danger{ background: var(--warn-dim); border-color: var(--warn); color: var(--warn); }
@@ -109,9 +123,9 @@
   .loc-item{ display:flex; align-items:center; justify-content:space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .loc-item:last-child{ border-bottom: none; }
   .loc-info{ display:flex; flex-direction:column; gap:2px; min-width: 0; }
-  .loc-name{ font-size: 14px; font-weight: 600; }
+  .loc-name{ font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
   .loc-sub{ font-size: 12px; color: var(--text-dim); }
-  .loc-del{ background: none; border: none; color: var(--text-dim); font-size: 18px; padding: 6px 8px; font-family: inherit; }
+  .loc-del{ background: none; border: none; color: var(--text-dim); font-size: 18px; min-width: 44px; min-height: 44px; padding: 8px 10px; font-family: inherit; cursor: pointer; touch-action: manipulation; }
   .loc-empty{ font-size: 13px; color: var(--text-dim); padding: 6px 0 12px; }
 
   .share-row{ display:flex; gap: 10px; margin: 0 0 12px; }
@@ -123,7 +137,7 @@
   }
   .add-panel textarea, .add-panel input[type=text]{
     width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
-    padding: 11px 12px; color: var(--text); font-size: 14px; margin-bottom: 10px; font-family: inherit;
+    padding: 12px; color: var(--text); font-size: 16px; margin-bottom: 10px; font-family: inherit;
   }
   .add-panel textarea{ font-size: 12px; resize: none; word-break: break-all; min-height: 64px; }
   .add-panel{ margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
@@ -134,18 +148,29 @@
 
   .btn-add-loc{
     width: 100%; margin-top: 4px; border: 1px dashed var(--line); background: none;
-    color: var(--text-dim); border-radius: 12px; padding: 13px 0; font-size: 14px; font-weight: 600; font-family: inherit;
+    color: var(--text-dim); border-radius: 12px; padding: 14px 12px; min-height: 48px;
+    font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; touch-action: manipulation;
+  }
+  button:focus-visible, input:focus-visible, textarea:focus-visible{
+    outline: 2px solid var(--blue); outline-offset: 2px;
+  }
+  @media (hover: hover) and (pointer: fine){
+    .btn.primary:hover{ filter: brightness(1.08); }
+    .btn.ghost:hover, .btn-add-loc:hover, .loc-del:hover{ color: var(--text); border-color: #3a4656; }
+    .quick-limits button:hover{ border-color: var(--blue); }
+    .stepper button:hover{ background: var(--line); }
   }
 
+  body.driving .meter{ flex: 1; min-height: 0; }
   body.driving .gauge-wrap{
     width: min(86vw, 42dvh, 360px);
     height: min(86vw, 42dvh, 360px);
     margin: 8px auto 0;
   }
-  body.driving .speed-value{ font-size: clamp(72px, 18vw, 108px); }
-  body.driving .speed-unit{ font-size: 15px; }
-  body.driving .delta{ font-size: clamp(18px, 5vw, 26px); margin-top: 8px; }
-  body.driving .drive-limit{ display:block; }
+  body.driving .speed-value{ font-size: clamp(52px, 34cqi, 120px); }
+  body.driving .speed-unit{ font-size: clamp(13px, 5.5cqi, 16px); }
+  body.driving .delta{ font-size: clamp(16px, 8cqi, 26px); margin-top: 8px; }
+  body.driving .drive-limit{ display:block; font-size: clamp(13px, 5cqi, 16px); }
   body.driving .stat .num{ font-size: clamp(22px, 6.2vw, 32px); }
   body.driving .stats{ margin-top: 10px; }
   body.driving .limit-setup,
@@ -153,14 +178,186 @@
   body.driving #resetBtn{ display: none; }
   body.driving .controls{ margin-top: auto; padding-top: 14px; }
   body.driving #startBtn{
-    padding: 22px 0 24px;
-    min-height: 84px;
-    font-size: 34px;
+    padding: 18px 0 20px;
+    min-height: 76px;
+    font-size: clamp(28px, 8vw, 36px);
     letter-spacing: 0.14em;
     border-radius: 20px;
     background: var(--warn);
     border-color: var(--warn);
     color: #1a0d0a;
+  }
+
+  @media (max-width: 389px){
+    .limit-line{ flex-wrap: wrap; }
+    .quick-limits{ width: 100%; }
+    .quick-limits button{ flex: 1; }
+    header h1{ font-size: 16px; }
+  }
+
+  @media (min-width: 700px){
+    .app{ max-width: 680px; padding: max(28px, env(safe-area-inset-top)) 32px max(32px, env(safe-area-inset-bottom)); }
+    header h1{ font-size: 22px; }
+    header .status{ font-size: 14px; }
+    .gauge-wrap{ width: min(340px, 42dvh); height: min(340px, 42dvh); margin-top: 28px; }
+    .stat .num{ font-size: 24px; }
+    .stat .lbl{ font-size: 13px; }
+    .btn{ min-height: 52px; font-size: 17px; border-radius: 16px; }
+    .stepper button{ width: 48px; height: 48px; }
+    .quick-limits{ gap: 8px; }
+    .quick-limits button{ min-width: 56px; height: 48px; font-size: 16px; }
+    .loc-name{ font-size: 16px; }
+    body.driving .app{ max-width: 760px; }
+    body.driving .gauge-wrap{
+      width: min(62vw, 50dvh, 480px);
+      height: min(62vw, 50dvh, 480px);
+    }
+    body.driving .stat .num{ font-size: clamp(26px, 4vw, 36px); }
+    body.driving #startBtn{ min-height: 96px; font-size: 40px; }
+  }
+
+  @media (min-width: 980px){
+    body:not(.driving){ height: 100dvh; overflow: hidden; }
+    body:not(.driving) .app{
+      max-width: 1120px;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(360px, 1.05fr) minmax(320px, 0.95fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      column-gap: 8px;
+      padding: max(24px, env(safe-area-inset-top)) max(36px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(36px, env(safe-area-inset-left));
+    }
+    body:not(.driving) header{ grid-column: 1 / -1; }
+    body:not(.driving) .meter{
+      min-height: 0;
+      padding-right: 28px;
+    }
+    body:not(.driving) .gauge-wrap{ width: min(300px, 36dvh); height: min(300px, 36dvh); margin-top: 16px; }
+    body:not(.driving) .controls{ margin-top: auto; }
+    body:not(.driving) .locaties{
+      margin-top: 16px;
+      border-top: none;
+      border-left: 1px solid var(--line);
+      padding: 4px 4px 8px 32px;
+      overflow: auto;
+      min-height: 0;
+    }
+    body.driving .app{ max-width: 840px; }
+    body.driving .gauge-wrap{
+      width: min(46vw, 52dvh, 460px);
+      height: min(46vw, 52dvh, 460px);
+    }
+  }
+
+  @media (orientation: portrait) and (max-height: 640px){
+    .gauge-wrap{ width: min(188px, 62vw); height: min(188px, 62vw); margin: 8px auto 2px; }
+    .limit-setup{ margin-top: 8px; }
+    .limit-caption{ margin-bottom: 4px; }
+    .stats{ margin-top: 10px; padding-top: 8px; }
+    .msg{ margin-top: 6px; min-height: 0; }
+    .controls{ margin-top: 8px; }
+  }
+
+  @media (orientation: landscape) and (max-height: 520px){
+    body:not(.driving){ height: 100dvh; overflow: hidden; }
+    body:not(.driving) .app{
+      max-width: none;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) minmax(84px, 32%);
+      padding:
+        max(8px, env(safe-area-inset-top))
+        max(14px, env(safe-area-inset-right))
+        max(8px, env(safe-area-inset-bottom))
+        max(14px, env(safe-area-inset-left));
+    }
+    body:not(.driving) header{ padding-bottom: 6px; }
+    body:not(.driving) .meter{
+      min-height: 0;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      column-gap: 18px;
+      align-items: center;
+    }
+    body:not(.driving) .gauge-wrap{
+      grid-row: 1 / span 4;
+      width: min(210px, 48dvh);
+      height: min(210px, 48dvh);
+      margin: 0;
+    }
+    body:not(.driving) .limit-setup{ margin-top: 0; }
+    body:not(.driving) .limit-caption{ margin-bottom: 4px; }
+    body:not(.driving) .stats{ margin-top: 8px; padding-top: 8px; }
+    body:not(.driving) .msg{ margin-top: 4px; min-height: 0; }
+    body:not(.driving) .controls{ margin-top: 8px; }
+    body:not(.driving) .btn{ min-height: 44px; padding: 8px 10px; }
+    body:not(.driving) .locaties{
+      min-height: 0;
+      overflow: auto;
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+    body.driving{
+      height: 100dvh;
+      overflow: hidden;
+    }
+    body.driving .app{
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto auto;
+      column-gap: 18px;
+      max-width: none;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      padding:
+        max(8px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        max(8px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
+    }
+    body.driving .meter{ display: contents; }
+    body.driving header{ grid-column: 1 / -1; padding-bottom: 8px; }
+    body.driving .gauge-wrap{
+      grid-column: 1;
+      grid-row: 2 / span 3;
+      width: min(68dvh, 40vw, 320px);
+      height: min(68dvh, 40vw, 320px);
+      max-width: calc(100dvh - 84px);
+      max-height: calc(100dvh - 84px);
+      margin: 0;
+      align-self: center;
+    }
+    body.driving .stats{
+      grid-column: 2;
+      grid-row: 2;
+      align-self: end;
+      margin-top: 0;
+    }
+    body.driving .msg{
+      grid-column: 2;
+      grid-row: 3;
+      align-self: center;
+      min-height: 0;
+      margin-top: 6px;
+    }
+    body.driving .controls{
+      grid-column: 2;
+      grid-row: 4;
+      margin-top: 8px;
+      padding-top: 0;
+      align-self: end;
+    }
+    body.driving #startBtn{
+      min-height: 64px;
+      font-size: 28px;
+      padding: 12px 0 14px;
+    }
   }
 </style>
 </head>
@@ -175,6 +372,7 @@
     </div>
   </header>
 
+  <div class="meter">
   <div class="gauge-wrap">
     <svg viewBox="0 0 250 250">
       <circle class="track" cx="125" cy="125" r="110"></circle>
@@ -216,6 +414,7 @@
   <div class="controls">
     <button type="button" class="btn ghost" id="resetBtn">reset</button>
     <button type="button" class="btn primary" id="startBtn">start bij het bord</button>
+  </div>
   </div>
 
   <div class="locaties">

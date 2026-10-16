@@ -1409,6 +1409,7 @@
   paintQuick(addQuick, addLimit);
   ensureWatch();
   render();
+  window.addEventListener('hashchange', () => { importFromLocation(); });
   importFromLocation();
 </script>
 </body>
